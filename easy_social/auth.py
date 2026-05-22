@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
+from .captcha import create_captcha_challenge, verify_captcha_response
 from .extensions import db
 from .models import User
 
@@ -18,12 +19,15 @@ def register():
         username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        captcha_answer = request.form.get("captcha_answer", "")
 
         error = None
         if not username or not email or not password:
             error = "Username, email, and password are required."
         elif len(username) > 40:
             error = "Username must be 40 characters or fewer."
+        elif not verify_captcha_response(captcha_answer):
+            error = "CAPTCHA answer is incorrect. Please try again."
         elif User.query.filter_by(username=username).first():
             error = "That username is already taken."
         elif User.query.filter_by(email=email).first():
@@ -39,7 +43,7 @@ def register():
             login_user(user)
             return redirect(url_for("social.feed"))
 
-    return render_template("auth/register.html")
+    return render_template("auth/register.html", captcha=create_captcha_challenge())
 
 
 @bp.route("/login", methods=["GET", "POST"])

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from easy_social import create_app
+from easy_social.captcha import SESSION_KEY
 from easy_social.extensions import db
 
 
@@ -33,12 +34,17 @@ def client(app):
 
 
 def register(client, username: str, email: str | None = None, password: str = "password"):
+    client.get("/auth/register")
+    with client.session_transaction() as session:
+        captcha_answer = session[SESSION_KEY]
+
     return client.post(
         "/auth/register",
         data={
             "username": username,
             "email": email or f"{username}@example.com",
             "password": password,
+            "captcha_answer": captcha_answer,
         },
         follow_redirects=True,
     )

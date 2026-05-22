@@ -37,7 +37,12 @@ def ui_app():
         )
         with app.app_context():
             db.create_all()
-        yield app
+        try:
+            yield app
+        finally:
+            with app.app_context():
+                db.session.remove()
+                db.engine.dispose()
 
 
 @pytest.fixture(scope="module")
@@ -128,8 +133,21 @@ def register_via_ui(browser, live_server: str, username: str):
     set_field_value(browser, form.find_element(By.NAME, "username"), username)
     set_field_value(browser, form.find_element(By.NAME, "email"), f"{username}@example.com")
     set_field_value(browser, form.find_element(By.NAME, "password"), "password")
+    set_field_value(browser, form.find_element(By.NAME, "captcha_answer"), "5")
     submit_form(browser, form)
     wait_for_feed(browser)
+
+
+def submit_registration_via_ui(browser, live_server: str, username: str, captcha_answer: str):
+    browser.get(f"{live_server}/auth/register")
+    form = WebDriverWait(browser, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "form.form-stack"))
+    )
+    set_field_value(browser, form.find_element(By.NAME, "username"), username)
+    set_field_value(browser, form.find_element(By.NAME, "email"), f"{username}@example.com")
+    set_field_value(browser, form.find_element(By.NAME, "password"), "password")
+    set_field_value(browser, form.find_element(By.NAME, "captcha_answer"), captcha_answer)
+    submit_form(browser, form)
 
 
 def logout_via_ui(browser):
@@ -188,6 +206,16 @@ def test_user_can_register_create_post_and_comment(browser, live_server):
     set_field_value(browser, comment_form.find_element(By.NAME, "body"), "First UI comment")
     submit_form(browser, comment_form)
     wait_for_text(browser, "First UI comment")
+
+
+@pytest.mark.ui
+def test_registration_requires_correct_captcha(browser, live_server):
+    submit_registration_via_ui(browser, live_server, "blockedbot", "999")
+    wait_for_text(browser, "CAPTCHA answer is incorrect")
+    assert "Feed" not in browser.find_element(By.TAG_NAME, "body").text
+
+    submit_registration_via_ui(browser, live_server, "human", "5")
+    wait_for_feed(browser)
 
 
 @pytest.mark.ui
