@@ -1,60 +1,60 @@
-# Poll Post Database Design
+# 投票貼文資料庫設計
 
-## Tables
+## 資料表
 
 ### `post`
 
-Poll posts reuse the existing `post` table. A post is considered a poll when it has related rows in `poll_option`.
+投票貼文沿用既有的 `post` 資料表。當一篇貼文在 `poll_option` 中有相關資料列時，就會被視為投票。
 
-Relevant fields:
+相關欄位：
 
-- `id`: primary key.
-- `body`: poll question text.
-- `author_id`: poll creator.
-- `created_at`: ordering timestamp.
-- `repost_of_id`: reposts point at the original poll post.
+- `id`: 主鍵。
+- `body`: 投票問題文字。
+- `author_id`: 投票建立者。
+- `created_at`: 用於排序的時間戳記。
+- `repost_of_id`: 轉貼會指向原始投票貼文。
 
 ### `poll_option`
 
-Stores up to four selectable choices for a poll post.
+儲存一篇投票貼文最多四個可選選項。
 
-- `id`: primary key.
-- `post_id`: foreign key to `post.id`.
-- `body`: option label, up to 280 characters.
-- `position`: display order.
+- `id`: 主鍵。
+- `post_id`: 指向 `post.id` 的外鍵。
+- `body`: 選項標籤，最多 280 個字元。
+- `position`: 顯示順序。
 
-Constraints:
+限制：
 
-- `uq_poll_option_position` prevents duplicate option positions within the same poll.
-- `ck_poll_option_position_range` keeps option positions in the supported 1 to 4 range.
+- `uq_poll_option_position` 防止同一個投票中出現重複的選項位置。
+- `ck_poll_option_position_range` 確保選項位置維持在支援的 1 到 4 範圍內。
 
 ### `poll_vote`
 
-Stores one selected option per user per poll post.
+儲存每位使用者在每篇投票貼文中選擇的一個選項。
 
-- `id`: primary key.
-- `post_id`: foreign key to `post.id`.
-- `option_id`: foreign key to `poll_option.id`.
-- `user_id`: foreign key to `user.id`.
-- `created_at`: vote timestamp.
+- `id`: 主鍵。
+- `post_id`: 指向 `post.id` 的外鍵。
+- `option_id`: 指向 `poll_option.id` 的外鍵。
+- `user_id`: 指向 `user.id` 的外鍵。
+- `created_at`: 投票時間戳記。
 
-Constraints:
+限制：
 
-- `uq_poll_vote_post_user` prevents a user from voting more than once in the same poll.
+- `uq_poll_vote_post_user` 防止使用者在同一個投票中重複投票。
 
-## Relationships
+## 關聯
 
-- `Post.poll_options` has many `PollOption` rows.
-- `PollOption.votes` has many `PollVote` rows.
-- `PollVote.post` points to the poll post for uniqueness checks and aggregation.
-- `PollVote.option` points to the selected option.
-- `PollVote.user` points to the voter.
+- `Post.poll_options` 擁有多筆 `PollOption` 資料列。
+- `PollOption.votes` 擁有多筆 `PollVote` 資料列。
+- `PollVote.post` 指向投票貼文，用於唯一性檢查與彙總。
+- `PollVote.option` 指向被選擇的選項。
+- `PollVote.user` 指向投票者。
 
-## Validation
+## 驗證
 
-The application accepts poll posts with 2 to 4 non-empty, unique options. Vote percentages are calculated from `poll_vote` counts after the user votes.
+應用程式接受包含 2 到 4 個非空白且不重複選項的投票貼文。使用者投票後，投票百分比會根據 `poll_vote` 的計數計算。
 
-## SQL Schema Reference
+## SQL Schema 參考
 
 ```sql
 CREATE TABLE poll_option (
