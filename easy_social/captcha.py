@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import base64
+import secrets
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from html import escape
 from random import SystemRandom
 
 from flask import current_app, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
-SESSION_KEY = "registration_captcha_answer"
+from .extensions import db
+from .models import CaptchaChallengeRecord
+
+SESSION_KEY = "registration_captcha_challenge_id"
+DEFAULT_TTL_SECONDS = 10 * 60
 
 _random = SystemRandom()
 
@@ -46,10 +53,41 @@ def _svg_data_uri(prompt: str) -> str:
 
 def create_captcha_challenge() -> CaptchaChallenge:
     prompt, answer = _challenge_parts()
-    session[SESSION_KEY] = str(answer)
+    now = datetime.now(timezone.utc)
+    db.session.query(CaptchaChallengeRecord).filter(
+        CaptchaChallengeRecord.expires_at <= now
+    ).delete(synchronize_session=False)
+
+    challenge_id = secrets.token_urlsafe(32)
+    ttl_seconds = current_app.config.get("CAPTCHA_TTL_SECONDS", DEFAULT_TTL_SECONDS)
+    db.session.add(
+        CaptchaChallengeRecord(
+            id=challenge_id,
+            answer_hash=generate_password_hash(str(answer)),
+            expires_at=now + timedelta(seconds=ttl_seconds),
+        )
+    )
+    db.session.commit()
+    session[SESSION_KEY] = challenge_id
     return CaptchaChallenge(prompt=prompt, image_data_uri=_svg_data_uri(prompt))
 
 
 def verify_captcha_response(response: str) -> bool:
-    expected = session.pop(SESSION_KEY, None)
-    return bool(expected) and response.strip() == expected
+    challenge_id = session.pop(SESSION_KEY, None)
+    if not challenge_id:
+        return False
+
+    challenge = db.session.get(CaptchaChallengeRecord, challenge_id)
+    if not challenge:
+        return False
+
+    expires_at = challenge.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    is_valid = expires_at > datetime.now(timezone.utc) and check_password_hash(
+        challenge.answer_hash, response.strip()
+    )
+    db.session.delete(challenge)
+    db.session.commit()
+    return is_valid
