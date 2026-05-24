@@ -209,6 +209,24 @@ def test_user_can_register_create_post_and_comment(browser, live_server):
 
 
 @pytest.mark.ui
+def test_user_can_create_and_vote_in_poll(browser, live_server):
+    register_via_ui(browser, live_server, "pollster")
+
+    composer = browser.find_element(By.CSS_SELECTOR, "form.composer")
+    set_field_value(browser, composer.find_element(By.NAME, "body"), "Which feature next?")
+    composer.find_element(By.CSS_SELECTOR, "input[name='post_type'][value='poll']").click()
+    option_inputs = composer.find_elements(By.NAME, "poll_options")
+    set_field_value(browser, option_inputs[0], "Polls")
+    set_field_value(browser, option_inputs[1], "Search")
+    submit_form(browser, composer)
+    wait_for_text(browser, "Which feature next?")
+
+    browser.find_element(By.XPATH, "//button[@name='option_id' and normalize-space()='Polls']").click()
+    wait_for_text(browser, "100%")
+    wait_for_text(browser, "1 vote")
+
+
+@pytest.mark.ui
 def test_registration_requires_correct_captcha(browser, live_server):
     submit_registration_via_ui(browser, live_server, "blockedbot", "999")
     wait_for_text(browser, "CAPTCHA answer is incorrect")

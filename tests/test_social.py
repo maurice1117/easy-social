@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import event
 
 from easy_social.extensions import db
-from easy_social.models import Comment, Post, User
+from easy_social.models import Comment, PollOption, PollVote, Post, User
 from scripts.import_fake_data import DEFAULT_DATA_DIR, import_fake_data
 
 from conftest import login, logout, register
@@ -67,6 +67,89 @@ def test_create_image_post(client, app):
         post = Post.query.one()
         assert post.media_type == "image"
         assert post.media_filename.endswith(".png")
+
+
+def test_create_poll_post_and_vote(client, app):
+    register(client, "alice")
+
+    response = client.post(
+        "/posts",
+        data={
+            "body": "Which feature should ship next?",
+            "post_type": "poll",
+            "poll_options": ["Polls", "Search", "Bookmarks", ""],
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    with app.app_context():
+        post = Post.query.filter_by(body="Which feature should ship next?").one()
+        post_id = post.id
+        options = PollOption.query.filter_by(post_id=post.id).order_by(PollOption.position).all()
+        assert [option.body for option in options] == ["Polls", "Search", "Bookmarks"]
+
+    with app.app_context():
+        option_id = PollOption.query.filter_by(body="Polls").one().id
+
+    response = client.post(
+        f"/posts/{post_id}/poll-votes",
+        data={"option_id": option_id},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"100%" in response.data
+    assert b"1 vote" in response.data
+    with app.app_context():
+        assert PollVote.query.count() == 1
+
+
+def test_poll_rejects_duplicate_vote(client, app):
+    register(client, "alice")
+    client.post(
+        "/posts",
+        data={
+            "body": "Pick one",
+            "post_type": "poll",
+            "poll_options": ["A", "B"],
+        },
+        follow_redirects=True,
+    )
+
+    with app.app_context():
+        post = Post.query.filter_by(body="Pick one").one()
+        post_id = post.id
+        option_id = post.poll_options[0].id
+
+    client.post(f"/posts/{post_id}/poll-votes", data={"option_id": option_id})
+    response = client.post(
+        f"/posts/{post_id}/poll-votes",
+        data={"option_id": option_id},
+        follow_redirects=True,
+    )
+
+    assert b"You already voted in this poll" in response.data
+    with app.app_context():
+        assert PollVote.query.count() == 1
+
+
+def test_poll_rejects_more_than_four_options(client, app):
+    register(client, "alice")
+
+    response = client.post(
+        "/posts",
+        data={
+            "body": "Too many options",
+            "post_type": "poll",
+            "poll_options": ["A", "B", "C", "D", "E"],
+        },
+        follow_redirects=True,
+    )
+
+    assert b"Poll posts can have at most four options" in response.data
+    with app.app_context():
+        assert Post.query.filter_by(body="Too many options").first() is None
 
 
 def test_following_adds_users_posts_to_feed(client, app):
