@@ -26,6 +26,7 @@ Stores up to four selectable choices for a poll post.
 Constraints:
 
 - `uq_poll_option_position` prevents duplicate option positions within the same poll.
+- `ck_poll_option_position_range` keeps option positions in the supported 1 to 4 range.
 
 ### `poll_vote`
 
@@ -61,6 +62,7 @@ CREATE TABLE poll_option (
     post_id INTEGER NOT NULL REFERENCES post(id),
     body VARCHAR(280) NOT NULL,
     position INTEGER NOT NULL,
+    CONSTRAINT ck_poll_option_position_range CHECK (position BETWEEN 1 AND 4),
     CONSTRAINT uq_poll_option_position UNIQUE (post_id, position)
 );
 
@@ -71,7 +73,7 @@ CREATE TABLE poll_vote (
     post_id INTEGER NOT NULL REFERENCES post(id),
     option_id INTEGER NOT NULL REFERENCES poll_option(id),
     user_id INTEGER NOT NULL REFERENCES user(id),
-    created_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_poll_vote_post_user UNIQUE (post_id, user_id)
 );
 

@@ -39,13 +39,17 @@
     const pollEditor = composer.querySelector("[data-poll-editor]");
     const postTypes = composer.querySelectorAll("[data-post-type]");
 
+    function syncPollEditor() {
+      if (pollEditor) {
+        const checkedType = composer.querySelector("[data-post-type]:checked");
+        pollEditor.hidden = !checkedType || checkedType.value !== "poll";
+      }
+    }
+
     postTypes.forEach(function (postType) {
-      postType.addEventListener("change", function () {
-        if (pollEditor) {
-          pollEditor.hidden = composer.querySelector("[data-post-type]:checked").value !== "poll";
-        }
-      });
+      postType.addEventListener("change", syncPollEditor);
     });
+    syncPollEditor();
 
     if (!input || !preview || !frame || !name || !clear) {
       return;

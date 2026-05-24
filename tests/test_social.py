@@ -90,7 +90,7 @@ def test_create_poll_post_and_vote(client, app):
         assert [option.body for option in options] == ["Polls", "Search", "Bookmarks"]
 
     with app.app_context():
-        option_id = PollOption.query.filter_by(body="Polls").one().id
+        option_id = PollOption.query.filter_by(post_id=post_id, body="Polls").one().id
 
     response = client.post(
         f"/posts/{post_id}/poll-votes",

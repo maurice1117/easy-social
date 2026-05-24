@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import desc, func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 
 from .extensions import db
@@ -203,7 +204,12 @@ def vote_poll(post_id: int):
         return redirect(request.referrer or url_for("social.post_detail", post_id=post.id))
 
     db.session.add(PollVote(post=post, option=option, user=current_user))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You already voted in this poll.", "error")
+        return redirect(request.referrer or url_for("social.post_detail", post_id=post.id))
     return redirect(request.referrer or url_for("social.post_detail", post_id=post.id))
 
 

@@ -155,6 +155,7 @@ class PollOption(db.Model):
     )
 
     __table_args__ = (
+        CheckConstraint("position BETWEEN 1 AND 4", name="ck_poll_option_position_range"),
         UniqueConstraint("post_id", "position", name="uq_poll_option_position"),
     )
 

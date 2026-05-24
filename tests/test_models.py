@@ -111,3 +111,23 @@ def test_poll_vote_allows_one_vote_per_user_per_post(app):
             db.session.rollback()
         else:
             raise AssertionError("duplicate poll vote should violate unique constraint")
+
+
+def test_poll_option_position_must_be_between_one_and_four(app):
+    with app.app_context():
+        alice = make_user("alice")
+        post = Post(author=alice, body="Best option?")
+        db.session.add_all(
+            [
+                alice,
+                post,
+                PollOption(post=post, body="Invalid", position=5),
+            ]
+        )
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+        else:
+            raise AssertionError("poll option position should violate range constraint")
