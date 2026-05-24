@@ -36,6 +36,16 @@
     const frame = composer.querySelector("[data-media-preview-frame]");
     const name = composer.querySelector("[data-media-preview-name]");
     const clear = composer.querySelector("[data-media-preview-clear]");
+    const pollEditor = composer.querySelector("[data-poll-editor]");
+    const postTypes = composer.querySelectorAll("[data-post-type]");
+
+    postTypes.forEach(function (postType) {
+      postType.addEventListener("change", function () {
+        if (pollEditor) {
+          pollEditor.hidden = composer.querySelector("[data-post-type]:checked").value !== "poll";
+        }
+      });
+    });
 
     if (!input || !preview || !frame || !name || !clear) {
       return;
