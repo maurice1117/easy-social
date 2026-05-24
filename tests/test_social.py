@@ -29,6 +29,26 @@ def test_register_login_and_create_text_post(client, app):
         assert post.media_filename is None
 
 
+def test_register_rejects_invalid_captcha(client, app):
+    client.get("/auth/register")
+
+    response = client.post(
+        "/auth/register",
+        data={
+            "username": "bot",
+            "email": "bot@example.com",
+            "password": "password",
+            "captcha_answer": "999",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"CAPTCHA answer is incorrect" in response.data
+    with app.app_context():
+        assert User.query.filter_by(username="bot").first() is None
+
+
 def test_create_image_post(client, app):
     register(client, "alice")
 

@@ -33,12 +33,15 @@ def client(app):
 
 
 def register(client, username: str, email: str | None = None, password: str = "password"):
+    client.get("/auth/register")
+
     return client.post(
         "/auth/register",
         data={
             "username": username,
             "email": email or f"{username}@example.com",
             "password": password,
+            "captcha_answer": "5",
         },
         follow_redirects=True,
     )
